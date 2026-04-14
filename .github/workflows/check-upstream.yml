@@ -17,11 +17,14 @@ jobs:
         id: check
         env:
           UPSTREAM_REPO: advplyr/audiobookshelf
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Get the latest upstream release tag
-          UPSTREAM_LATEST=$(gh release view --repo "$UPSTREAM_REPO" --json tagName --jq '.tagName' 2>/dev/null || echo "")
+          echo "Fetching latest release from $UPSTREAM_REPO..."
+          UPSTREAM_LATEST=$(gh release view --repo "$UPSTREAM_REPO" --json tagName --jq '.tagName' 2>&1)
+          echo "UPSTREAM_LATEST=$UPSTREAM_LATEST"
           if [ -z "$UPSTREAM_LATEST" ]; then
-            echo "Could not fetch upstream release, exiting"
+            echo "Could not fetch upstream release: $UPSTREAM_LATEST"
             echo "should_build=false" >> $GITHUB_OUTPUT
             exit 0
           fi
