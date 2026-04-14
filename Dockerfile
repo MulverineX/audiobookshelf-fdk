@@ -74,6 +74,26 @@ RUN wget https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.bz2 && \
 # Use the build argument to specify the base image tag
 FROM ghcr.io/advplyr/audiobookshelf:${AUDIOBOOKSHELF_TAG}
 
-# Copy the custom-built ffmpeg and ffprobe from the builder stage
-COPY --from=builder /ffmpeg /usr/bin/ffmpeg
-COPY --from=builder /ffprobe /usr/bin/ffprobe
+# Copy the custom-built ffmpeg and ffprobe to a location not on the PATH
+COPY --from=builder /ffmpeg /usr/local/bin/ffmpeg.real
+COPY --from=builder /ffprobe /usr/local/bin/ffprobe.real
+
+# Create ffmpeg wrapper that remaps -c:a aac -> -c:a libfdk_aac for better transcoding
+RUN echo '#!/usr/bin/perl\n\
+use strict;\n\
+use warnings;\n\
+my @newargs;\n\
+my $i = 0;\n\
+while ($i < @ARGV) {\n\
+    if ($ARGV[$i] eq '"'"'-c:a'"'"' && $i + 1 < @ARGV && $ARGV[$i+1] eq '"'"'aac'"'"') {\n\
+        push @newargs, '"'"'-c:a'"'"', '"'"'libfdk_aac'"'"';\n\
+        $i += 2;\n\
+    } else {\n\
+        push @newargs, $ARGV[$i];\n\
+        $i++;\n\
+    }\n\
+}\n\
+exec "/usr/local/bin/ffmpeg.real", @newargs;' > /usr/bin/ffmpeg && chmod +x /usr/bin/ffmpeg
+
+# ffprobe wrapper (pass-through, no remapping needed)
+RUN echo '#!/bin/sh\nexec /usr/local/bin/ffprobe.real "$@"' > /usr/bin/ffprobe && chmod +x /usr/bin/ffprobe
