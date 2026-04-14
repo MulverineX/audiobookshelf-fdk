@@ -25,10 +25,25 @@ jobs:
       packages: write
       attestations: write
       id-token: write
-
+    outputs:
+      resolved_tag: ${{ steps.resolve.outputs.resolved_tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Resolve tag
+        id: resolve
+        env:
+          INPUT_TAG: ${{ inputs.audiobookshelf_tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "$INPUT_TAG" = "latest" ] || [ "$INPUT_TAG" = "edge" ]; then
+            RESOLVED=$(gh release view --repo advplyr/audiobookshelf --json tagName --jq '.tagName')
+          else
+            RESOLVED="$INPUT_TAG"
+          fi
+          echo "Resolved tag: $RESOLVED"
+          echo "resolved_tag=$RESOLVED" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -47,6 +62,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ inputs.audiobookshelf_tag }}
+            type=raw,value=${{ steps.resolve.outputs.resolved_tag }}
             type=sha,prefix=
 
       - name: Build and push with provenance
@@ -57,6 +73,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            AUDIOBOOKSHELF_TAG=${{ inputs.audiobookshelf_tag }}
+            AUDIOBOOKSHELF_TAG=${{ steps.resolve.outputs.resolved_tag }}
           provenance: true
           sbom: true

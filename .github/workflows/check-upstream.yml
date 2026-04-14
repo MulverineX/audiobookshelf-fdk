@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       should_build: ${{ steps.check.outputs.should_build }}
-      latest_tag: ${{ steps.check.outputs.latest_tag }}
     steps:
       - name: Check upstream release
         id: check
@@ -19,25 +18,18 @@ jobs:
           UPSTREAM_REPO: advplyr/audiobookshelf
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Get the latest upstream release tag
           echo "Fetching latest release from $UPSTREAM_REPO..."
           UPSTREAM_LATEST=$(gh release view --repo "$UPSTREAM_REPO" --json tagName --jq '.tagName' 2>&1)
-          echo "UPSTREAM_LATEST=$UPSTREAM_LATEST"
-          if [ -z "$UPSTREAM_LATEST" ]; then
-            echo "Could not fetch upstream release: $UPSTREAM_LATEST"
-            echo "should_build=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
           echo "Latest upstream: $UPSTREAM_LATEST"
-          echo "latest_tag=$UPSTREAM_LATEST" >> $GITHUB_OUTPUT
 
-          # Check if we already built this version
-          BUILT_TAGS=$(gh api -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
-            "packages/container/${{ github.repository_owner }}%2Faudiobookshelf-fdk/tags" \
-            --jq '.[].name' 2>/dev/null || echo "")
+          # Check if latest tag already points to this version
+          LATEST_DIGEST=$(gh api "packages/container/${{ github.repository_owner }}%2Faudiobookshelf-fdk/tags/latest" \
+            --jq '.digest' 2>/dev/null || echo "")
+          CURRENT_DIGEST=$(gh api "packages/container/${{ github.repository_owner }}%2Faudiobookshelf-fdk/tags/$UPSTREAM_LATEST" \
+            --jq '.digest' 2>/dev/null || echo "")
 
-          if echo "$BUILT_TAGS" | grep -q "^${UPSTREAM_LATEST}$"; then
-            echo "Tag $UPSTREAM_LATEST already built, skipping"
+          if [ "$LATEST_DIGEST" = "$CURRENT_DIGEST" ] && [ -n "$LATEST_DIGEST" ]; then
+            echo "Image 'latest' already matches upstream $UPSTREAM_LATEST, skipping build"
             echo "should_build=false" >> $GITHUB_OUTPUT
           else
             echo "New upstream release detected: $UPSTREAM_LATEST"
@@ -54,4 +46,4 @@ jobs:
       id-token: write
     uses: ./.github/workflows/build-publish.yml
     with:
-      audiobookshelf_tag: ${{ needs.check.outputs.latest_tag }}
+      audiobookshelf_tag: latest
