@@ -1,0 +1,49 @@
+name: Check Upstream
+
+on:
+  schedule:
+    # Check for new upstream releases at 9am and 9pm daily
+    - cron: '0 9,21 * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+      latest_tag: ${{ steps.check.outputs.latest_tag }}
+    steps:
+      - name: Check upstream release
+        id: check
+        env:
+          UPSTREAM_REPO: advplyr/audiobookshelf
+        run: |
+          # Get the latest upstream release tag
+          UPSTREAM_LATEST=$(gh release view --repo "$UPSTREAM_REPO" --json tagName --jq '.tagName' 2>/dev/null || echo "")
+          if [ -z "$UPSTREAM_LATEST" ]; then
+            echo "Could not fetch upstream release, exiting"
+            echo "should_build=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "Latest upstream: $UPSTREAM_LATEST"
+          echo "latest_tag=$UPSTREAM_LATEST" >> $GITHUB_OUTPUT
+
+          # Check if we already built this version
+          BUILT_TAGS=$(gh api -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+            "packages/container/${{ github.repository_owner }}%2Faudiobookshelf-fdk/tags" \
+            --jq '.[].name' 2>/dev/null || echo "")
+
+          if echo "$BUILT_TAGS" | grep -q "^${UPSTREAM_LATEST}$"; then
+            echo "Tag $UPSTREAM_LATEST already built, skipping"
+            echo "should_build=false" >> $GITHUB_OUTPUT
+          else
+            echo "New upstream release detected: $UPSTREAM_LATEST"
+            echo "should_build=true" >> $GITHUB_OUTPUT
+          fi
+
+  build:
+    needs: check
+    if: needs.check.outputs.should_build == 'true'
+    uses: ./.github/workflows/build-publish.yml
+    with:
+      audiobookshelf_tag: ${{ needs.check.outputs.latest_tag }}
