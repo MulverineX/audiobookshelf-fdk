@@ -47,7 +47,6 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ inputs.audiobookshelf_tag }}
-            type=semver,pattern={{version}},value=${{ inputs.audiobookshelf_tag }}
             type=sha,prefix=
 
       - name: Build and push with provenance

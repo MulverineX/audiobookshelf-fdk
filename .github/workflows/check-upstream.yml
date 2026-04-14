@@ -44,6 +44,10 @@ jobs:
   build:
     needs: check
     if: needs.check.outputs.should_build == 'true'
+    permissions:
+      packages: write
+      attestations: write
+      id-token: write
     uses: ./.github/workflows/build-publish.yml
     with:
       audiobookshelf_tag: ${{ needs.check.outputs.latest_tag }}
