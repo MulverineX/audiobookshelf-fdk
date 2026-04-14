@@ -38,9 +38,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ "$INPUT_TAG" = "latest" ] || [ "$INPUT_TAG" = "edge" ]; then
-            RESOLVED=$(gh release view --repo advplyr/audiobookshelf --json tagName --jq '.tagName')
+            RESOLVED=$(gh release view --repo advplyr/audiobookshelf --json tagName --jq '.tagName' | sed 's/^v//')
           else
-            RESOLVED="$INPUT_TAG"
+            RESOLVED=$(echo "$INPUT_TAG" | sed 's/^v//')
           fi
           echo "Resolved tag: $RESOLVED"
           echo "resolved_tag=$RESOLVED" >> $GITHUB_OUTPUT
