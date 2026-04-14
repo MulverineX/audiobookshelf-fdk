@@ -42,7 +42,7 @@ This image is built with **SLSA provenance attestation** and **SBOM**, providing
 
 ```bash
 # Clone
-git clone https://github.com/MulverineX/audiobookshelf-fdk.git
+git clone git@github.com:MulverineX/audiobookshelf-fdk.git
 cd audiobookshelf-fdk
 
 # Build locally
